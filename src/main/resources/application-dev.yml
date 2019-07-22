@@ -1,0 +1,96 @@
+spring:
+  application:
+    name: vosung-api-gateway
+  datasource:
+    url: jdbc:mysql://47.104.220.191:3306/vsc_au?useUnicode=true&characterEncoding=utf-8&serverTimezone=GMT%2B8
+    username: vosung
+    password: Vosung@123
+    driverClassName: com.mysql.cj.jdbc.Driver
+    dbcp2:
+      max-idle: 5
+      max-wait-millis: 10000
+      min-idle: 2
+      initial-size: 3
+      validation-query: SELECT 1
+      time-between-eviction-runs-millis: 18800
+    tomcat:
+      jdbc-interceptors: ConnectionState;SlowQueryReport(threshold=50)
+  redis:
+    database: 0
+    host: 127.0.0.1
+    password: 123456
+    timeout: 5000
+    jedis:
+      pool:
+        max-active: 30
+        min-idle: 10
+        max-wait: -1
+        max-idle: 10
+    port: 6379
+server:
+  port: 8083  #线上端口号为9083
+eureka:
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 4
+    lease-expiration-duration-in-seconds: 12
+  client:
+    serviceUrl:
+      defaultZone: http://192.168.2.210:8761/eureka/ #服务注册中心地址---开发环境
+    fetch-registry: true
+    registry-fetch-interval-seconds: 8
+
+zuul:
+  ribbon:
+    eager-load:
+      enabled: true
+  host:
+    maxTotalConnections: 200
+    maxPerRouteConnections: 20
+  routes: #面向服务路由配置
+    login:
+      path: /login/**
+      serviceId: vosung-auth-server
+      sensitiveHeaders: Cookie,Set-Cookie
+    authWebApp:
+      path: /authWebApp/**
+      serviceId: vosung-au-app
+      sensitiveHeaders: Cookie,Set-Cookie
+    ksfApp:
+      path: /ksfApp/**
+      serviceId: ksf-app
+      sensitiveHeaders: Cookie,Set-Cookie
+  retryable: true #不关闭重试机制,如果路由转发请求发生超时,只要超时时间的设置小于Hystrix的命令超时时间,会自动发起重试.
+
+ribbon:
+  MaxAutoRetries: 1 #对当前服务重试次数
+  MaxAutoRetriesNextServer: 2 #切换相同server的次数
+  ReadTimeout: 5000 #用来设置路由转发请求的超时时间
+  ConnectTimeout: 4000 #该参数用来设置路由转发请求的时候,创建请求连接的超时时间
+  retryableStatusCodes: 404,502
+hystrix:
+  command:
+    default:
+      execution:
+        isolation:
+          thread:
+            timeoutInMilliseconds: 5000 # 用来设置api网关路由转发请求的HystirxCommand执行超时时间 (比上面配置值大,会启动重试机制)
+
+auth:
+  permitall:
+    -
+      pattern: /login/**
+    -
+      pattern: /**/public/**
+#    -
+#      pattern: /authWebApp/auth/positionController/getPositionList
+security:
+  oauth2:
+    client:
+      access-token-uri: /oauth/token
+      user-authorization-uri: /oauth/authorize
+      client-id: frontend
+      client-secret: frontend
+    resource:
+      user-info-uri: /userinfo   #user-info-uri原理是在授权服务器认证后将认证信息Principal通过形参绑定的方法通过URL的方式获取用户信息。
+      token-info-uri: /oauth/check_token #都是为了check token
